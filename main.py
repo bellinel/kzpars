@@ -15,6 +15,26 @@ from chek_nca import find_nca
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+async def auth(driver):
+    try:
+        select_lang = driver.find_element(By.XPATH, "/html/body/app-root/app-auth/div/div[2]/div[2]/app-lang/p-selectbutton/div/div[2]/span")
+        select_lang.click()
+        await asyncio.sleep(3)
+            
+        next_menu = WebDriverWait(driver, 15).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "span.icon-arrow-next"))
+        )
+        next_menu.click()
+
+        button = driver.find_element(By.XPATH, "//button[contains(text(), 'Выбрать сертификат')]")
+        button.click()
+        await find_nca()
+    except:
+        print("❌ Не удалось авторизоваться")
+        
+
+
+
 def save_pdf(url):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"file_{timestamp}.pdf"
@@ -27,7 +47,7 @@ def save_pdf(url):
 def check_auth(driver):
     try:
         WebDriverWait(driver, 60).until(
-            EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'user-profile')]"))
+            EC.presence_of_element_located((By.XPATH, "//p[contains(@class, 'username')]"))
         )
         print("✅ Авторизация успешна!")
         return True
@@ -37,80 +57,107 @@ def check_auth(driver):
 
 
 
-async def download_kz():    
+async def download_kz(driver):    
 
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+    # driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
     driver.get("https://erap-public.kgp.kz/#/login")
 
+    await auth(driver)
+    chek_auth = check_auth(driver)
 
-
-    select_lang = driver.find_element(By.XPATH, "/html/body/app-root/app-auth/div/div[2]/div[2]/app-lang/p-selectbutton/div/div[2]/span")
-    select_lang.click()
-    time.sleep(3)
-            
-    next_menu = WebDriverWait(driver, 15).until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, "span.icon-arrow-next"))
-    )
-    next_menu.click()
     # 2. Клик по кнопке ЭЦП (используем CSS-селектор для иконки)
-    if check_auth(driver):
-
-        # поиск контенера со штрафами
+    
+    if chek_auth:
+        processed_iins = set()
         while True:
-            
-            disabled_button = driver.find_element(
-                    By.XPATH,
-                    "//button[@disabled and .//span[text()='Следующие 10']]"
-                )
-                
-            if disabled_button:
-                print("❌ Нет штрафов")
-                break
-            
-
             try:
-                dropdown_label = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, "span.p-dropdown-label"))
-                )
-                dropdown_label.click()
-                option = WebDriverWait(driver, 10).until(
-                    EC.visibility_of_element_located((By.XPATH, "//li[@role='option' and span[text()='Не оплачен']]"))
-                )
-                option.click()
-                time.sleep(1)
-                break
-            except:
-                print("❌ Не удалось найти комбобокс")
-            try:
-                button_next = driver.find_element(By.XPATH, "//button[not(@disabled) and .//span[text()='Следующие 10']]")
-                container = driver.find_elements(By.XPATH, "//*[@id='pn_id_18-table']")
-                for item in container:
-                    tr = item.find_element(By.XPATH, "//*[@id='pn_id_18-table']/tbody/tr[1]")
-                    button = tr.find_element(By.XPATH, "//*[@id='pn_id_18-table']/tbody/tr[1]/td[8]/div/button")
-                    button.click()
-                    time.sleep(1)
-                
+                await asyncio.sleep(1)
 
-                    url_cont= WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.XPATH, "//*[@id='pn_id_41_content']/div/ul/li/a"))
-                    )
-                    
-                    url = url_cont.find_element(By.XPATH, "//a[@target='_blank' and contains(@href, 'erap-public.kgp.kz')]")
-                    url = url.get_attribute("href")
+        # Получаем обновлённый список строк
+                container = driver.find_elements(By.XPATH, "//table[@id='pn_id_18-table']//tbody/tr")
 
-                    save_pdf(url)
-                    driver.back()
-                   
-                button_next.click()
-            except:
+                for i, item in enumerate(container):
+                    try:
+                        cells = item.find_elements(By.TAG_NAME, "td")
+                        if len(cells) >= 8:
+                            iin = cells[2].text.strip()
+                            status = cells[6].text.strip()
+
+                            # Пропускаем, если уже обрабатывали или статус не "Не оплачен"
+                            if iin in processed_iins or status != "Не оплачен":
+                                continue
+
+                            processed_iins.add(iin)  # Отмечаем как обработанный
+
+                            # Кликаем на кнопку
+                            button = cells[7].find_element(By.TAG_NAME, "button")
+                            driver.execute_script("arguments[0].click();", button)
+                            print(f"🟢 Открыл запись с ИИН: {iin}")
+                            await asyncio.sleep(1)
+
+                            # Обрабатываем PDF
+                            try:
+                                protokol_li = WebDriverWait(driver, 10).until(
+                                    EC.presence_of_element_located((By.XPATH, "//li[p[contains(text(), 'Протокол')]]"))
+                                )
+                                # Находим ссылку внутри
+                                pdf_link = protokol_li.find_element(By.TAG_NAME, "a")
+                                href = pdf_link.get_attribute("href")
+                                save_pdf(href)
+                                print("📥 PDF сохранён")
+                                driver.back()
+                                await asyncio.sleep(1)
+                                await auth(driver)
+                                
+# После возврата назад — ждём, пока снова загрузится таблица
+                                WebDriverWait(driver, 15).until(
+                                    EC.presence_of_element_located((By.XPATH, "//table[@id='pn_id_18-table']//tbody/tr"))
+                                )
+                                # Продолжаем цикл — без break
+                                continue
+
+                            except:
+                                print("⚠️ PDF не найден")
+
+                            # Назад к таблице
+                            
+
+                             # После одной записи — перезапускаем цикл и обновляем container
+
+                    except Exception as e:
+                        print(f"⚠️ Ошибка в записи {i}: {e}")
+
+                # Переход к следующей странице
+                    try:
+                        button_next = driver.find_element(By.XPATH, "//button[.//span[text()='Следующие 10']]")
+                        if button_next.is_enabled():
+                            button_next.click()
+                            print("➡️ Переход на следующую страницу")
+                            await asyncio.sleep(3)
+                        else:
+                            print("✅ Последняя страница достигнута")
+                            break
+                    except:
+                        print("✅ Кнопка 'Следующие 10' не найдена")
+                        break
+
+            except Exception as e:
+                print(f"❌ Ошибка в основном цикле: {e}")
                 break
+
+
+        
+
+
+
                     
         
 async def main():
-    asyncio.create_task(find_nca())
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
     while True:
-        await download_kz()
-        time.sleep(10)
+        await download_kz(driver)
+        await asyncio.sleep(10)
+
 
 
 
@@ -122,8 +169,7 @@ async def main():
         
 
 
-# if __name__ == "__main__":
-#     asyncio.run(download_kz())
+if __name__ == "__main__":
+    asyncio.run(main())
 
 
-save_pdf()
