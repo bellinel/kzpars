@@ -81,6 +81,8 @@ async def find_nca():
     while True:
         if find_and_click('start.png'):
             auth()
+            break
+            
         time.sleep(2)
 
 
