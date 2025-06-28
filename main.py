@@ -1,3 +1,4 @@
+from multiprocessing import Process
 from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -216,6 +217,7 @@ async def check_time_and_run_send(target_time="09:00"):
     sent_today = False
     while True:
         now = datetime.now().strftime("%H:%M")
+        
         if now == target_time and not sent_today:
             await send_all_pdfs()
             sent_today = True
@@ -225,14 +227,31 @@ async def check_time_and_run_send(target_time="09:00"):
             sent_today = False
         await asyncio.sleep(1)
 
-# --- Главная функция с одновременным запуском двух задач ---
-async def main():
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
-    # Запускаем одновременно скачивание и проверку времени
-    await asyncio.gather(
-        download_kz(driver),
-        check_time_and_run_send("09:00")  # укажи время для отправки
-    )
 
-if __name__ == "__main__":
-    asyncio.run(main())
+async def run_download_kz_loop():
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+    while True:
+        await download_kz(driver)
+        await asyncio.sleep(10)
+
+async def run_check_time_loop():
+    await check_time_and_run_send("09:00")
+
+
+
+def start_download_process():
+    asyncio.run(run_download_kz_loop())
+
+def start_time_check_process():
+    asyncio.run(run_check_time_loop())
+        
+
+if __name__ == '__main__':
+    p1 = Process(target=start_download_process)
+    p2 = Process(target=start_time_check_process)
+
+    p1.start()
+    p2.start()
+
+    p1.join()
+    p2.join()
