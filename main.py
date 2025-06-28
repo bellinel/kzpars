@@ -230,9 +230,9 @@ async def check_time_and_run_send(target_time="09:00"):
 
 async def run_download_kz_loop():
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
-    while True:
-        await download_kz(driver)
-        await asyncio.sleep(10)
+    await download_kz(driver)
+    
+   
 
 async def run_check_time_loop():
     await check_time_and_run_send("09:00")
