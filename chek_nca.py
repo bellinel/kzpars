@@ -1,3 +1,4 @@
+import asyncio
 import cv2
 import pyautogui
 import time
@@ -5,7 +6,7 @@ import numpy as np
 import pyperclip
 
 
-MY_PASSWORD = "mypassword"
+MY_PASSWORD = ""
 
 
 
@@ -35,15 +36,14 @@ def find_and_click(template_path, threshold=0.9):
 # Пример последовательности:
  # время на открытие NCALayer вручную
 
-
-def auth():
+async def auth_kz():
     i = 0
     while i < 10:
-        if find_and_click('password.png', 0.8):
-            time.sleep(2)
+        if find_and_click('password_kz.png', 0.8):
+            await asyncio.sleep(2)
             
-            pyperclip.copy("mypassword")
-            time.sleep(0.5)
+            pyperclip.copy(MY_PASSWORD)
+            await asyncio.sleep(0.5)
             pyautogui.rightClick()
             for i in range(5):
                  pyautogui.press('tab')
@@ -51,14 +51,58 @@ def auth():
 
         
             break
-        time.sleep(1)
+        
+        i += 1
+    i = 0
+    while i < 10:
+            if find_and_click('open_kz.png', 0.8):
+                
+                break
+            
+            i += 1
+            if i > 10:
+                print("❌ Не удалось найти кнопку open")
+                break
+
+    i = 0
+    while i < 10:
+            if find_and_click('select_kz.png'):
+                find_and_click('approve_kz.png')   
+                break
+            
+            i += 1
+            if i > 10:
+                print("❌ Не удалось найти кнопку select")
+                break
+            await asyncio.sleep(1)
+
+
+
+
+
+async def auth():
+    i = 0
+    while i < 10:
+        if find_and_click('password.png', 0.8):
+            await asyncio.sleep(2)
+            
+            pyperclip.copy(MY_PASSWORD)
+            await asyncio.sleep(0.5)
+            pyautogui.rightClick()
+            for i in range(5):
+                 pyautogui.press('tab')
+            pyautogui.press('enter')
+
+        
+            break
+        
         i += 1
     i = 0
     while i < 10:
             if find_and_click('open.png', 0.8):
                 
                 break
-            time.sleep(1)
+            
             i += 1
             if i > 10:
                 print("❌ Не удалось найти кнопку open")
@@ -69,18 +113,24 @@ def auth():
             if find_and_click('select.png'):
                 find_and_click('approve.png')   
                 break
-            time.sleep(1)
+            
             i += 1
             if i > 10:
                 print("❌ Не удалось найти кнопку select")
                 break
-        
-        
+            await asyncio.sleep(1)
+    
 
 async def find_nca():
+    print("🔍 Поиск NCALayer")
     while True:
+        if find_and_click('start_kz.png'):
+            await auth_kz()
+            break
         if find_and_click('start.png'):
-            auth()
-        time.sleep(2)
+            await auth()
+            break
+        await asyncio.sleep(2)
+        
 
 
