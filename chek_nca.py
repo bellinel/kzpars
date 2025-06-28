@@ -131,6 +131,5 @@ async def find_nca():
             await auth()
             break
         await asyncio.sleep(2)
-        
 
 
