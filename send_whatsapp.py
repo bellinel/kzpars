@@ -3,13 +3,15 @@ import requests
 import asyncio
 import zipfile
 
-IDISTANSE = "7105271174" 
-API_KEY = "846ea21f0e6a4bd097b938f9956bdefb134268aad3344daab4"
-CHAT_ID = "120363419948813756@g.us"
+IDISTANSE = "" 
+API_KEY = ""
+CHAT_ID = ""
+
+PATH_FOR_ARCHIVE ="" #'C:/Users/Admin/Desktop/Парсер штрафов/pdfs.zip'
 
 
-def create_zip_from_folder(folder_path, zip_name):
-    zip_path = f"{zip_name}.zip"
+async def create_zip_from_folder(folder_path, zip_name_without_ext):
+    zip_path = f"{zip_name_without_ext}.zip"
 
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for root, _, files in os.walk(folder_path):
@@ -22,40 +24,36 @@ def create_zip_from_folder(folder_path, zip_name):
     return zip_path
 
 
-def save_files_whatsapp(file_name):
-    url = f"https://7105.api.greenapi.com/waInstance{IDISTANSE}/uploadFile/{API_KEY}"
-
-    files = [ 
-        ('file', (file_name, open(file_name,'rb'),'application/x-compressed')) 
-    ]
-    headers = {
-        'Content-Type': 'application/x-compressed'
-    }
-    response = requests.post(url, files=files, headers=headers)
-    json_data = response.json()
-    url = json_data.get('urlFile')
-    return url
-
-
-def send_file_whatsapp(file_name):
-    url = f"https://7105.api.greenapi.com/waInstance{IDISTANSE}/sendFileByUrl/{API_KEY}"
-
+async def send_file_whatsapp(zip_path):
+    url = f"https://7105.api.greenapi.com/waInstance{IDISTANSE}/sendFileByUpload/{API_KEY}"
+    
     payload = {
         'chatId': CHAT_ID,
-        'url': save_files_whatsapp(file_name),
-        'fileName': file_name
+        'fileName': 'штрафы.zip'
     }
-    headers = {
-        'Content-Type': 'application/json'
-    }
-    response = requests.post(url, json=payload, headers=headers)
-    return response.json()
+
+    try:
+        with open(zip_path, 'rb') as f:
+            files = [('file', ('штрафы.zip', f, 'application/x-compressed'))]
+            response = requests.post(url, data=payload, files=files)
+            print(f"📤 Ответ от WhatsApp API: {response.text}")
+    except Exception as e:
+        print(f"❌ Ошибка при отправке файла: {e}")
+
+    # Удаление архива после отправки
+    if os.path.exists(zip_path):
+        os.remove(zip_path)
+        print(f"🗑 Архив удалён: {zip_path}")
+    else:
+        print(f"⚠️ Архив не найден для удаления: {zip_path}")
 
 
 async def send_all_files_whatsapp():
-    zip_path = create_zip_from_folder('pdfs', 'pdfs.zip')
-    send_file_whatsapp(zip_path)
-    
+    print('📦 Арихивация запущена')
+    zip_path = await create_zip_from_folder('pdfs', PATH_FOR_ARCHIVE[:-4])
+    await send_file_whatsapp(zip_path)
+
+
 
 
 
