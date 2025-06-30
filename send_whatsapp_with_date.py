@@ -37,12 +37,12 @@ async def send_file_whatsapp(zip_path):
     
     payload = {
         'chatId': CHAT_ID,
-        'fileName': 'штрафы.zip'
+        'fileName': 'штрафы_с_датой.zip'
     }
 
     try:
         with open(zip_path, 'rb') as f:
-            files = [('file', ('штрафы.zip', f, 'application/x-compressed'))]
+            files = [('file', ('штрафы_с_датой.zip', f, 'application/x-compressed'))]
             response = requests.post(url, data=payload, files=files)
             print(f"📤 Ответ от WhatsApp API: {response.text}")
     except Exception as e:
@@ -58,7 +58,7 @@ async def send_file_whatsapp(zip_path):
 
 async def send_all_files_whatsapp():
     print('📦 Арихивация запущена')
-    zip_path = await create_zip_from_folder('pdfs', PATH_FOR_ARCHIVE[:-4])
+    zip_path = await create_zip_from_folder('pdfs_with_date', PATH_FOR_ARCHIVE[:-4])
     await send_file_whatsapp(zip_path)
 
 
