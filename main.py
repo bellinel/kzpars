@@ -125,8 +125,19 @@ def download_kz(driver):
                     continue
 
             if not iins_to_process:
-                print("ℹ️ Нет необработанных записей на странице")
-                break
+                try:
+                    button_next = WebDriverWait(driver, 10).until(
+                        EC.element_to_be_clickable((By.XPATH, "//button[.//span[text()='Следующие 10']]"))
+                    )
+                    action = ActionChains(driver)
+                    action.move_to_element(button_next).click().perform()
+                    print("➡️ Перешли на следующую страницу")
+                    time.sleep(2)
+                    continue  # Переход к следующему циклу
+                except:
+                    print("✅ Кнопка 'Следующие 10' не найдена — достигнут конец.")
+                    continue
+                
             
 
             
